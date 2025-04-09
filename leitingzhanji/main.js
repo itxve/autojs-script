@@ -49,102 +49,80 @@ function gen_small_pic() {
 var window = floaty.window(
   <frame bg="#dfd0d0">
     <vertical>
-      <vertical w="260" padding="8">
-        <vertical>
-          <text id="console" text="准备出击" w="*" />
-        </vertical>
-
-        <horizontal padding="4">
-          <text text="出击次数:" />
-          <input
-            id="count"
-            hint="出击次数"
-            text="2"
-            w="80"
-            inputType="number"
-          />
-          <button id="regen" text="重新生成" w="80" />
-        </horizontal>
-        {/* <vertical>
-          <Switch
-            id="running"
-            text="stop"
-            checked="false"
-            disabled="true"
-            padding="8 8 8 8"
-            textSize="15sp"
-          />
-        </vertical> */}
+      <vertical>
+        <text id="console" text="准备出击" w="*" />
       </vertical>
-      <vertical w="260" h="80" id="configPanel" visibility="gone">
-        <horizontal>
-          <text textSize="16sp">截取屏幕</text>
-          <spinner
-            id="select"
-            textColor="#4CAF50"
-            entryTextColor="#4CAF50"
-            entries="好友竞赛|选择机友|出击|死亡|宝箱领取|继续"
-          />
-          <button id="capture" text="截屏" w="40" h="40" bg="#4CAF50" />
-        </horizontal>
-      </vertical>
-      <vertical w="260" h="80" id="mainPanel">
-        <horizontal gravity="center" padding="8">
-          <Switch
-            id="focus"
-            text="聚焦"
-            checked="false"
-            padding="8 8 8 8"
-            textSize="15sp"
-          />
-          <vertical padding="4">
-            <button id="start" text="出击" w="40" h="40" bg="#4CAF50" />
-          </vertical>
-          <vertical padding="4">
-            <button
-              id="lookguanggao"
-              text="开始看广告"
-              w="65"
-              h="40"
-              bg="#4CAF50"
+      <vertical id="mainPanel" visibility="gone">
+        <vertical w="260" padding="8">
+          <horizontal padding="4">
+            <text text="出击次数:" />
+            <input
+              id="count"
+              hint="出击次数"
+              text="2"
+              w="80"
+              inputType="number"
             />
-          </vertical>
-          <vertical>
-            <button id="config" text="配置" w="40" />
-          </vertical>
-        </horizontal>
+            <button id="regen" text="重新生成" w="80" />
+          </horizontal>
+        </vertical>
+        <vertical w="260" h="80">
+          <horizontal>
+            <text textSize="16sp">截取屏幕</text>
+            <spinner
+              id="select"
+              textColor="#4CAF50"
+              entryTextColor="#4CAF50"
+              entries="好友竞赛|选择机友|出击|死亡|宝箱领取|继续"
+            />
+            <button id="capture" text="截屏" w="40" h="40" bg="#4CAF50" />
+          </horizontal>
+        </vertical>
+        <vertical w="260" h="80">
+          <horizontal gravity="center" padding="8">
+            <vertical padding="4">
+              <button id="start" text="出击" w="40" h="40" bg="#4CAF50" />
+            </vertical>
+            <vertical padding="4">
+              <button
+                id="lookguanggao"
+                text="开始看广告"
+                w="65"
+                h="40"
+                bg="#4CAF50"
+              />
+            </vertical>
+            <vertical>
+              <button id="config" text="配置" w="40" />
+            </vertical>
+          </horizontal>
+        </vertical>
       </vertical>
-      <vertical gravity="left" padding="4">
+      <horizontal id="miniPanel" gravity="left" padding="4">
+        <Switch
+          id="open"
+          text="聚焦"
+          checked="false"
+          padding="8 8 8 8"
+          textSize="15sp"
+        />
         <button id="exit" text="退出" w="40" h="40" bg="#FF5722" />
-      </vertical>
+      </horizontal>
     </vertical>
   </frame>
 );
 
-window.exitOnClose();
-
-/**
- * 长按显示调整大小
- */
-window.mainPanel.on("long_click", () => {
+let resize = () => {
   window.setAdjustEnabled(true);
   setTimeout(() => {
     window.setAdjustEnabled(false);
   }, 4000);
-});
-
-window.config.on("click", () => {
-  ui.run(() => {
-    // gone：8 ，visible：0
-    const isExpanded = window.configPanel.visibility === 8;
-    window.configPanel.setVisibility(isExpanded ? 0 : 8);
-    if (isExpanded) {
-      window.mainPanel.requestLayout();
-    } else {
-      window.mainPanel.requestLayout();
-    }
-  });
-});
+};
+/**
+ * 长按显示调整大小
+ */
+window.miniPanel.on("long_click", resize);
+window.exit.on("long_click", resize);
 
 /**
  *
@@ -171,13 +149,6 @@ function consoleText(text) {
     window.console.setText(text);
   });
 }
-// 请求截图权限（同步方式）
-if (!requestScreenCapture()) {
-  toast("截图权限被拒绝");
-  exit();
-}
-// 确保权限获取成功
-auto.waitFor();
 
 window.regen.on("click", () => {
   gen_small_pic();
@@ -186,6 +157,7 @@ window.regen.on("click", () => {
 
 var lookguanggao_task;
 window.lookguanggao.on("click", () => {
+  window.disableFocus();
   if (lookguanggao_task) {
     lookguanggao_task.interrupt();
     lookguanggao_task = null;
@@ -228,6 +200,7 @@ window.lookguanggao.on("click", () => {
  */
 var chuji_task;
 window.start.on("click", () => {
+  window.disableFocus();
   if (chuji_task) {
     chuji_task.interrupt();
     chuji_task = null;
@@ -274,6 +247,7 @@ window.start.on("click", () => {
           20,
           20
         );
+        sleep(5000);
       }
       consoleText(prestr + "setp.4 [已死亡]");
       sleep(6000);
@@ -293,18 +267,29 @@ window.start.on("click", () => {
       consoleText(prestr + "setp.6 [继续出击]");
     }
     consoleText("出击完成了");
+    window.start.setText("出击");
   });
 });
 
 /**
  * 聚焦
  */
-window.focus.on("check", function (checked) {
+window.open.on("check", function (checked) {
   if (checked) {
     window.requestFocus();
   } else {
     window.disableFocus();
   }
+  ui.run(() => {
+    // gone：8 ，visible：0
+    const isExpanded = window.mainPanel.visibility === 8;
+    window.mainPanel.setVisibility(isExpanded ? 0 : 8);
+    if (isExpanded) {
+      window.mainPanel.requestLayout();
+    } else {
+      window.mainPanel.requestLayout();
+    }
+  });
 });
 
 let close = false;
@@ -312,9 +297,21 @@ window.setPosition(200, 400);
 window.exit.click(function () {
   close = true;
   toast("exit");
-  if (task) {
-    task.interrupt();
+  if (chuji_task) {
+    chuji_task.interrupt();
+  }
+  if (lookguanggao_task) {
+    lookguanggao_task.interrupt();
   }
 });
+
+// 请求截图权限（同步方式）
+if (!requestScreenCapture()) {
+  toast("截图权限被拒绝");
+  exit();
+}
+// 确保权限获取成功
+auto.waitFor();
+window.exitOnClose();
 
 while (!close) {}
