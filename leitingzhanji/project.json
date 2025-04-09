@@ -1,0 +1,10 @@
+{
+    "name": "雷霆战机无尽模式金币版",
+    "main": "main.js",
+    "ignore": [
+        "build"
+    ],
+    "packageName": "com.leitingzhanji",
+    "versionName": "1.0.0",
+    "versionCode": 1
+}
