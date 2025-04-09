@@ -162,7 +162,6 @@ function findImageThenClick(path, offset_x, offset_y) {
     click(x + offset_x, y + offset_y);
     return true;
   } else {
-    toast("path:" + path);
     return false;
   }
 }
