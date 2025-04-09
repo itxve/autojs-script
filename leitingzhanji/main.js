@@ -6,12 +6,11 @@
  * @returns
  */
 function fs_join(path) {
-  // 项目文件名
-  let folder_name = "/leitingzhanji";
-  return files.join(files.cwd() + folder_name, path);
+  return files.join(files.cwd(), path);
 }
+
 /**
- * 生成对应的small小文件
+ * 生成对应的small小文件 【修改自己机型的x,y,w,h】然后生成就行了
  */
 const clip_json = {
   haoyoujingsai: {
@@ -39,7 +38,7 @@ const clip_json = {
 function gen_small_pic() {
   Object.keys(clip_json).forEach((key) => {
     let { name, format, x, y, w, h } = clip_json[key];
-    var source = images.read(files.path(fs_join("/res/" + name + format)));
+    var source = images.read(fs_join("/res/" + name + format));
     var clip = images.clip(source, x, y, w, h);
     let save2path = fs_join("/res/small/" + name + ".png");
     files.ensureDir(save2path);

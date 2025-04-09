@@ -2,6 +2,14 @@
 
 ---
 
+### 本地开发
+
+---
+
+[vscode 开发插件](https://marketplace.visualstudio.com/items?itemName=aaroncheng.auto-js-vsce-fixed)
+
+---
+
 ### 脚本目录
 
 ---
