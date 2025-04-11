@@ -6,7 +6,10 @@
 
 ---
 
-[vscode 开发插件](https://marketplace.visualstudio.com/items?itemName=aaroncheng.auto-js-vsce-fixed)
+[vscode 开发插件](https://marketplace.visualstudio.com/items?itemName=003.autojs6-vscode-ext)
+
+链接问题：
+[链接不上](https://github.com/SuperMonster003/AutoJs6/issues/321)
 
 ---
 

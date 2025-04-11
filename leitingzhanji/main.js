@@ -1,7 +1,7 @@
 // id  需要 大于2个字符
 
 /**
- * 返回基于当前项目路径
+ * 返回基于当前项目 main.js路径
  * @param {*} path
  * @returns
  */
@@ -12,7 +12,7 @@ function fs_join(path) {
 /**
  * 生成对应的small小文件 【修改自己机型的x,y,w,h】然后生成就行了
  */
-const clip_json = {
+const config_json = {
   haoyoujingsai: {
     name: "haoyoujingsai",
     format: ".jpg",
@@ -35,9 +35,26 @@ const clip_json = {
   jixu: { name: "jixu", format: ".jpg", x: 410, y: 2230, w: 432, h: 144 },
   guanggao: { name: "guanggao", format: ".jpg", x: 64, y: 1905, w: 52, h: 52 },
 };
+
+let capture_map = {
+  0: { name: "haoyoujingsai", format: ".jpg", label: "好友竞赛" },
+  1: { name: "jiyouchuji", format: ".jpg", label: "选择机友" },
+  2: { name: "chuji", format: ".jpg", label: "出击" },
+  3: { name: "dead", format: ".jpg", label: "死亡" },
+  4: { name: "lingqu", format: ".jpg", label: "宝箱领取" },
+  5: { name: "jixu", format: ".jpg", label: "继续" },
+  6: { name: "guanggao", format: ".jpg", label: "商城广告" },
+};
+const pic_list = Object.values(capture_map)
+  .map((item) => item.label)
+  .join("|");
+
+/**
+ * 生成小图
+ */
 function gen_small_pic() {
-  Object.keys(clip_json).forEach((key) => {
-    let { name, format, x, y, w, h } = clip_json[key];
+  Object.keys(config_json).forEach((key) => {
+    let { name, format, x, y, w, h } = config_json[key];
     var source = images.read(fs_join("/res/" + name + format));
     var clip = images.clip(source, x, y, w, h);
     let save2path = fs_join("/res/small/" + name + ".png");
@@ -47,7 +64,7 @@ function gen_small_pic() {
 }
 
 var window = floaty.window(
-  <frame bg="#dfd0d0">
+  <frame id="main" bg="#dfd0d0">
     <vertical>
       <vertical>
         <text id="console" text="准备出击" w="*" />
@@ -63,51 +80,43 @@ var window = floaty.window(
               w="80"
               inputType="number"
             />
-            <button id="regen" text="重新生成" w="80" />
+            <button id="regen" text="生成小图" w="80" />
           </horizontal>
         </vertical>
         <vertical w="260" h="80">
-          <horizontal>
-            <text textSize="16sp">截取屏幕</text>
-            <spinner
-              id="select"
-              textColor="#4CAF50"
-              entryTextColor="#4CAF50"
-              entries="好友竞赛|选择机友|出击|死亡|宝箱领取|继续"
-            />
-            <button id="capture" text="截屏" w="40" h="40" bg="#4CAF50" />
-          </horizontal>
-        </vertical>
-        <vertical w="260" h="80">
-          <horizontal gravity="center" padding="8">
-            <vertical padding="4">
-              <button id="start" text="出击" w="40" h="40" bg="#4CAF50" />
-            </vertical>
-            <vertical padding="4">
-              <button
-                id="lookguanggao"
-                text="开始看广告"
-                w="65"
-                h="40"
-                bg="#4CAF50"
-              />
+          <horizontal padding="16">
+            <vertical>
+              <button id="capture" text="截屏" w="60" h="40" />
             </vertical>
             <vertical>
-              <button id="config" text="配置" w="40" />
+              <spinner
+                id="select"
+                textColor="#0261ac"
+                entryTextColor="#0261ac"
+                w="180"
+                entries="{{pic_list}}"
+              />
             </vertical>
           </horizontal>
         </vertical>
       </vertical>
-      <horizontal id="miniPanel" gravity="left" padding="4">
-        <Switch
-          id="open"
-          text="聚焦"
-          checked="false"
-          padding="8 8 8 8"
-          textSize="15sp"
-        />
-        <button id="exit" text="退出" w="40" h="40" bg="#FF5722" />
-      </horizontal>
+      <vertical w="260" h="60" id="miniPanel">
+        <horizontal gravity="center" padding="6">
+          <Switch
+            id="open"
+            text="聚焦"
+            checked="false"
+            padding="8 8 8 8"
+            textSize="15sp"
+          />
+          <vertical>
+            <button id="start" text="出击" w="60" h="40" />
+          </vertical>
+          <vertical>
+            <button id="lookguanggao" text="开始看广告" w="90" h="40" />
+          </vertical>
+        </horizontal>
+      </vertical>
     </vertical>
   </frame>
 );
@@ -122,18 +131,20 @@ let resize = () => {
  * 长按显示调整大小
  */
 window.miniPanel.on("long_click", resize);
-window.exit.on("long_click", resize);
 
 /**
- *
+ * 找图
  * @param {*} path
  * @param {*} offset_x
  * @param {*} offset_y
  * @returns
  */
 function findImageThenClick(path, offset_x, offset_y) {
-  var capture = captureScreen();
+  var capture = images.captureScreen();
   var clip = images.read(fs_join(path));
+  if (!clip) {
+    toast(fs_join(path) + ":not found");
+  }
   var beg = findImage(capture, clip, { threshold: 0.8 });
   if (beg) {
     let { x, y } = beg;
@@ -144,6 +155,41 @@ function findImageThenClick(path, offset_x, offset_y) {
   }
 }
 
+/**
+ * 找图等待超时
+ * @param {*} path
+ * @param {*} offset_x
+ * @param {*} offset_y
+ * @param {*} timeout
+ * @param {*} retryInterval
+ * @returns
+ */
+function findImageByTimeOutThenClick(
+  path,
+  offset_x,
+  offset_y,
+  timeout,
+  retryInterval
+) {
+  timeout = timeout || 10000;
+  retryInterval = retryInterval || 1000;
+
+  const startTime = Date.now();
+  let finded = false;
+  while (!finded) {
+    finded = findImageThenClick(path, offset_x, offset_y);
+    sleep(retryInterval);
+    if (Date.now() - startTime >= timeout) {
+      toast(path + "：超时");
+      return;
+    }
+  }
+}
+
+/**
+ * task cosole 显示
+ * @param {*} text
+ */
 function consoleText(text) {
   ui.run(() => {
     window.console.setText(text);
@@ -152,12 +198,70 @@ function consoleText(text) {
 
 window.regen.on("click", () => {
   gen_small_pic();
-  toast("生成成功！");
+  toast("小图成功！");
 });
 
+window.open.on("check", function (checked) {
+  if (checked) {
+    window.requestFocus();
+
+    ui.run(() => {
+      window.main.setBackgroundColor(colors.parseColor("#7e7ec0"));
+    });
+  } else {
+    window.disableFocus();
+
+    ui.run(() => {
+      window.main.setBackgroundColor(colors.parseColor("#dfd0d0"));
+    });
+  }
+  ui.run(() => {
+    // gone：8 ，visible：0
+    const isExpanded = window.mainPanel.visibility === 8;
+    ui.run(() => {
+      window.mainPanel.setVisibility(isExpanded ? 0 : 8);
+    });
+  });
+});
+
+window.capture.click(function () {
+  let selectIndex = window.select.getSelectedItemPosition();
+  let { name, format } = capture_map[selectIndex];
+  toast(name);
+  // captureScreen(fs_join("/res/" + name + "--hh" + format));
+  toast(fs_join("/res/" + name + "--hh" + format));
+});
+
+function orc(area, text, timeout, retryInterval) {
+  threads.start(() => {
+    retryInterval = retryInterval || 1000;
+    let img = images.captureScreen();
+    try {
+      const startTime = Date.now();
+      let finded = false;
+      while (!finded) {
+        let results = ocr(img, area);
+        if (results) {
+          results = String(results);
+          consoleText(results);
+          finded = results.indexOf(text) != -1;
+        }
+        sleep(retryInterval);
+        if (Date.now() - startTime >= timeout) {
+          finded = false;
+        }
+      }
+    } catch (error) {
+      consoleText(error);
+    }
+  });
+}
+
 var lookguanggao_task;
+/**
+ * 观看商城广告
+ */
 window.lookguanggao.on("click", () => {
-  window.disableFocus();
   if (lookguanggao_task) {
     lookguanggao_task.interrupt();
     lookguanggao_task = null;
@@ -174,33 +278,32 @@ window.lookguanggao.on("click", () => {
     while (looking) {
       consoleText("观看广告中......");
       looking = findImageThenClick(
-        "/res/small/" + clip_json["guanggao"].name + ".png",
+        "/res/small/" + config_json["guanggao"].name + ".png",
         10,
         10
       );
       if (!looking) {
         return;
       }
-      sleep(45000);
-      back();
-      sleep(3000);
+      orc([0, 0, device.width, device.height / 5], "已获得奖励", 40000, 3000);
       findImageThenClick(
-        "/res/small/" + clip_json["lingqu"].name + ".png",
+        "/res/small/" + config_json["lingqu"].name + ".png",
         20,
-        20
+        20,
+        4000,
+        2000
       );
-      sleep(3000);
+      consoleText("领取完毕");
     }
     consoleText("广告都已看完了！");
   });
 });
 
-/**
- * 出击
- */
 var chuji_task;
+/**
+ * 无尽出击
+ */
 window.start.on("click", () => {
-  window.disableFocus();
   if (chuji_task) {
     chuji_task.interrupt();
     chuji_task = null;
@@ -218,100 +321,110 @@ window.start.on("click", () => {
     count = Number(count) || 1;
     for (let index = 1; index <= count; index++) {
       let prestr = `第${index}次出击 ::`;
-      findImageThenClick(
-        "/res/small/" + clip_json["haoyoujingsai"].name + ".png",
-        20,
-        20
-      );
       consoleText(prestr + "setp.1 [好友竞赛]");
-      sleep(1500);
-      findImageThenClick(
-        "/res/small/" + clip_json["jiyouchuji"].name + ".png",
+      findImageByTimeOutThenClick(
+        "/res/small/" + config_json["haoyoujingsai"].name + ".png",
         20,
-        20
+        20,
+        10000,
+        2000
       );
       consoleText(prestr + "setp.2 [选择战友出击]");
-      sleep(1500);
-      findImageThenClick(
-        "/res/small/" + clip_json["chuji"].name + ".png",
+      findImageByTimeOutThenClick(
+        "/res/small/" + config_json["jiyouchuji"].name + ".png",
         20,
-        20
+        20,
+        10000,
+        2000
       );
       consoleText(prestr + "setp.3 [出击]");
-      sleep(1500);
-      let dead = false;
-      while (!dead) {
-        consoleText(prestr + "setp.4 [检测是否死亡并结束]");
-        dead = findImageThenClick(
-          "/res/small/" + clip_json["dead"].name + ".png",
-          20,
-          20
-        );
-        sleep(5000);
-      }
-      consoleText(prestr + "setp.4 [已死亡]");
-      sleep(6000);
-      //是否有宝箱领取
-      findImageThenClick(
-        "/res/small/" + clip_json["lingqu"].name + ".png",
+      findImageByTimeOutThenClick(
+        "/res/small/" + config_json["chuji"].name + ".png",
         20,
-        20
+        20,
+        10000,
+        2000
       );
-      consoleText(prestr + "setp.5 [宝箱领取]");
-      sleep(4000);
-      findImageThenClick(
-        "/res/small/" + clip_json["jixu"].name + ".png",
+      consoleText(prestr + "setp.4 [检测是否死亡并结束]");
+      findImageByTimeOutThenClick(
+        "/res/small/" + config_json["dead"].name + ".png",
         20,
-        20
+        20,
+        300000, //半小时
+        4000
+      );
+      consoleText(prestr + "setp.4 [已死亡]");
+      sleep(1000);
+      consoleText(prestr + "setp.5 [宝箱领取]");
+      //是否有宝箱领取
+      findImageByTimeOutThenClick(
+        "/res/small/" + config_json["lingqu"].name + ".png",
+        20,
+        20,
+        10000,
+        2000
+      );
+
+      findImageByTimeOutThenClick(
+        "/res/small/" + config_json["jixu"].name + ".png",
+        20,
+        20,
+        10000,
+        2000
       );
       consoleText(prestr + "setp.6 [继续出击]");
+      sleep(2000);
     }
     consoleText("出击完成了");
     window.start.setText("出击");
   });
 });
 
-/**
- * 聚焦
- */
-window.open.on("check", function (checked) {
-  if (checked) {
-    window.requestFocus();
-  } else {
-    window.disableFocus();
+function checkAccessibility() {
+  if (!auto.service) {
+    toast("请先开启无障碍服务");
+    return false;
   }
-  ui.run(() => {
-    // gone：8 ，visible：0
-    const isExpanded = window.mainPanel.visibility === 8;
-    window.mainPanel.setVisibility(isExpanded ? 0 : 8);
-    if (isExpanded) {
-      window.mainPanel.requestLayout();
+  return true;
+}
+
+function exitScript() {
+  threads.shutDownAll();
+  engines.stopAll();
+  setTimeout(() => {
+    runtime.exit();
+  }, 800);
+}
+
+function start() {
+  // 请求截图权限（同步方式）
+  if (!requestScreenCapture()) {
+    toast("截图权限被拒绝");
+    exit();
+  }
+  // 确保权限获取成功
+  auto.waitFor();
+  window.exitOnClose();
+  window.setPosition(200, 400);
+
+  if (!checkAccessibility()) return;
+
+  // 主线线程
+  events.observeKey();
+  // 连续按两下减音量键退出
+  let timeout = 2000;
+  let lastPressTime = 0;
+  //监听音量上键按下
+  events.onKeyDown("volume_down", function (_event) {
+    const now = Date.now();
+    if (now - lastPressTime < timeout) {
+      // 3 秒内第二次按下
+      exitScript();
     } else {
-      window.mainPanel.requestLayout();
+      toast("再按一次退出脚本");
+      lastPressTime = now;
     }
   });
-});
-
-let close = false;
-window.setPosition(200, 400);
-window.exit.click(function () {
-  close = true;
-  toast("exit");
-  if (chuji_task) {
-    chuji_task.interrupt();
-  }
-  if (lookguanggao_task) {
-    lookguanggao_task.interrupt();
-  }
-});
-
-// 请求截图权限（同步方式）
-if (!requestScreenCapture()) {
-  toast("截图权限被拒绝");
-  exit();
 }
-// 确保权限获取成功
-auto.waitFor();
-window.exitOnClose();
 
-while (!close) {}
+start();
