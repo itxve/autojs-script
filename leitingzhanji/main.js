@@ -6,7 +6,8 @@
  * @returns
  */
 function fs_join(path) {
-  return files.join(files.cwd(), path);
+  // return files.join(files.cwd(), path);
+  return files.path(path);
 }
 
 /**
@@ -34,6 +35,14 @@ const config_json = {
   lingqu: { name: "lingqu", format: ".jpg", x: 413, y: 2074, w: 430, h: 144 },
   jixu: { name: "jixu", format: ".jpg", x: 410, y: 2230, w: 432, h: 144 },
   guanggao: { name: "guanggao", format: ".jpg", x: 64, y: 1905, w: 52, h: 52 },
+  tiliguanggao: {
+    name: "tiliguanggao",
+    format: ".jpg",
+    x: 801,
+    y: 1585,
+    w: 52,
+    h: 52,
+  },
 };
 
 let capture_map = {
@@ -44,6 +53,7 @@ let capture_map = {
   4: { name: "lingqu", format: ".jpg", label: "宝箱领取" },
   5: { name: "jixu", format: ".jpg", label: "继续" },
   6: { name: "guanggao", format: ".jpg", label: "商城广告" },
+  7: { name: "tiliguanggao", format: ".jpg", label: "体力广告" },
 };
 const pic_list = Object.values(capture_map)
   .map((item) => item.label)
@@ -55,11 +65,14 @@ const pic_list = Object.values(capture_map)
 function gen_small_pic() {
   Object.keys(config_json).forEach((key) => {
     let { name, format, x, y, w, h } = config_json[key];
-    var source = images.read(fs_join("/res/" + name + format));
+    var source = images.read(fs_join("res/" + name + format));
     var clip = images.clip(source, x, y, w, h);
-    let save2path = fs_join("/res/small/" + name + ".png");
+    let save2path = fs_join("res/small/" + name + ".png");
     files.ensureDir(save2path);
     images.save(clip, save2path);
+    //回收
+    clip.recycle();
+    source.recycle();
   });
 }
 
@@ -144,8 +157,10 @@ function findImageThenClick(path, offset_x, offset_y) {
   var clip = images.read(fs_join(path));
   if (!clip) {
     toast(fs_join(path) + ":not found");
+    return false;
   }
   var beg = findImage(capture, clip, { threshold: 0.8 });
+  clip.recycle();
   if (beg) {
     let { x, y } = beg;
     click(x + offset_x, y + offset_y);
@@ -177,13 +192,14 @@ function findImageByTimeOutThenClick(
   const startTime = Date.now();
   let finded = false;
   while (!finded) {
-    finded = findImageThenClick(path, offset_x, offset_y);
-    sleep(retryInterval);
     if (Date.now() - startTime >= timeout) {
       toast(path + "：超时");
       return;
     }
+    finded = findImageThenClick(path, offset_x, offset_y);
+    sleep(retryInterval);
   }
+  return finded;
 }
 
 /**
@@ -206,7 +222,7 @@ window.open.on("check", function (checked) {
     window.requestFocus();
 
     ui.run(() => {
-      window.main.setBackgroundColor(colors.parseColor("#7e7ec0"));
+      window.main.setBackgroundColor(colors.parseColor("#ba9f9f"));
     });
   } else {
     window.disableFocus();
@@ -224,37 +240,57 @@ window.open.on("check", function (checked) {
   });
 });
 
+/**
+ * 截图关键图片
+ */
+var capture_task;
 window.capture.click(function () {
-  let selectIndex = window.select.getSelectedItemPosition();
-  let { name, format } = capture_map[selectIndex];
-  toast(name);
-  // captureScreen(fs_join("/res/" + name + "--hh" + format));
-  toast(fs_join("/res/" + name + "--hh" + format));
+  if (capture_task) {
+    capture_task.interrupt();
+    capture_task = null;
+  }
+  capture_task = threads.start(() => {
+    let selectIndex = window.select.getSelectedItemPosition();
+    let { name, format } = capture_map[selectIndex];
+    captureScreen(fs_join("res/" + name + format));
+    toast(fs_join("res/" + name + format));
+  });
 });
 
-function orc(area, text, timeout, retryInterval) {
-  threads.start(() => {
-    retryInterval = retryInterval || 1000;
-    let img = images.captureScreen();
-    try {
-      const startTime = Date.now();
-      let finded = false;
-      while (!finded) {
-        let results = ocr(img, area);
+function orc_text(area, text, timeout, retryInterval, callFunc) {
+  let defalut_func = () => {};
+  callFunc = callFunc || defalut_func;
+  retryInterval = retryInterval || 1000;
+  try {
+    const startTime = Date.now();
+    let finded = false;
+    while (!finded) {
+      if (Date.now() - startTime >= timeout) {
+        consoleText("orc 识别等待广告结束【超时】");
+        callFunc();
+        finded = true;
+      } else {
+        let img = images.captureScreen();
+        let [x, y, w, h] = area;
+        img = images.clip(img, x, y, w, h);
+        let results = ocr(img);
         if (results) {
-          results = String(results);
-          consoleText(results);
-          finded = results.indexOf(text) != -1;
-        }
-        sleep(retryInterval);
-        if (Date.now() - startTime >= timeout) {
+          results = results.join(",");
+          if (results.indexOf(text) != -1) {
+            consoleText("orc识别【" + text + "】文字");
+            callFunc();
+            finded = true;
+          }
+        } else {
+          consoleText("orc未识别已获得奖励文字");
           finded = false;
         }
       }
-    } catch (error) {
-      consoleText(error);
+      sleep(retryInterval);
     }
-  });
+  } catch (error) {
+    consoleText(error);
+  }
 }
 
 var lookguanggao_task;
@@ -276,22 +312,51 @@ window.lookguanggao.on("click", () => {
   lookguanggao_task = threads.start(() => {
     let looking = true;
     while (looking) {
-      consoleText("观看广告中......");
-      looking = findImageThenClick(
-        "/res/small/" + config_json["guanggao"].name + ".png",
+      let shangcheng = false;
+      let tili_and_xingjitansuo = false;
+      consoleText("观看商城广告中......");
+      shangcheng = findImageByTimeOutThenClick(
+        "res/small/" + config_json["guanggao"].name + ".png",
         10,
-        10
+        10,
+        5000
       );
-      if (!looking) {
+      sleep(1500);
+      if (!shangcheng) {
+        consoleText("观看体力广告中......");
+      }
+      tili_and_xingjitansuo = findImageByTimeOutThenClick(
+        "res/small/" + config_json["tiliguanggao"].name + ".png",
+        10,
+        10,
+        5000
+      );
+
+      looking = shangcheng || tili_and_xingjitansuo;
+      if (!shangcheng && !tili_and_xingjitansuo) {
+        consoleText("【没有找到任何广告】");
+        window.lookguanggao.setText("开始看广告");
         return;
       }
-      orc([0, 0, device.width, device.height / 5], "已获得奖励", 40000, 3000);
-      findImageThenClick(
-        "/res/small/" + config_json["lingqu"].name + ".png",
+      sleep(1500);
+      consoleText("等待广告结束");
+      orc_text(
+        [0, 0, device.width, device.height / 5],
+        "已获得奖励",
+        40000,
+        3000,
+        () => {
+          //超时或者找到
+          back();
+        }
+      );
+      sleep(2000);
+      findImageByTimeOutThenClick(
+        "res/small/" + config_json["lingqu"].name + ".png",
         20,
         20,
-        4000,
-        2000
+        10000,
+        1000
       );
       consoleText("领取完毕");
     }
@@ -323,7 +388,7 @@ window.start.on("click", () => {
       let prestr = `第${index}次出击 ::`;
       consoleText(prestr + "setp.1 [好友竞赛]");
       findImageByTimeOutThenClick(
-        "/res/small/" + config_json["haoyoujingsai"].name + ".png",
+        "res/small/" + config_json["haoyoujingsai"].name + ".png",
         20,
         20,
         10000,
@@ -331,7 +396,7 @@ window.start.on("click", () => {
       );
       consoleText(prestr + "setp.2 [选择战友出击]");
       findImageByTimeOutThenClick(
-        "/res/small/" + config_json["jiyouchuji"].name + ".png",
+        "res/small/" + config_json["jiyouchuji"].name + ".png",
         20,
         20,
         10000,
@@ -339,7 +404,7 @@ window.start.on("click", () => {
       );
       consoleText(prestr + "setp.3 [出击]");
       findImageByTimeOutThenClick(
-        "/res/small/" + config_json["chuji"].name + ".png",
+        "res/small/" + config_json["chuji"].name + ".png",
         20,
         20,
         10000,
@@ -347,7 +412,7 @@ window.start.on("click", () => {
       );
       consoleText(prestr + "setp.4 [检测是否死亡并结束]");
       findImageByTimeOutThenClick(
-        "/res/small/" + config_json["dead"].name + ".png",
+        "res/small/" + config_json["dead"].name + ".png",
         20,
         20,
         300000, //半小时
@@ -358,7 +423,7 @@ window.start.on("click", () => {
       consoleText(prestr + "setp.5 [宝箱领取]");
       //是否有宝箱领取
       findImageByTimeOutThenClick(
-        "/res/small/" + config_json["lingqu"].name + ".png",
+        "res/small/" + config_json["lingqu"].name + ".png",
         20,
         20,
         10000,
@@ -366,7 +431,7 @@ window.start.on("click", () => {
       );
 
       findImageByTimeOutThenClick(
-        "/res/small/" + config_json["jixu"].name + ".png",
+        "res/small/" + config_json["jixu"].name + ".png",
         20,
         20,
         10000,
