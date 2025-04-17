@@ -3,6 +3,7 @@
     "main": "main.js",
     "ignore": [
         "build",
+        "res",
         "startWith函数实现"
     ],
     "packageName": "com.leitingzhanji",
