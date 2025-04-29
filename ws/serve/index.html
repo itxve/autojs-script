@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+
+  <style>
+    /* 简约圆角边框 */
+    .img-border-1 {
+      border: 3px solid #f0f0f0;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease;
+    }
+
+    /* 渐变发光边框 */
+    .img-border-2 {
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .img-border-2::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+      z-index: -1;
+      filter: blur(8px);
+    }
+
+    /* 立体浮雕边框 */
+    .img-border-3 {
+      border: 1px solid #ffffff;
+      box-shadow:
+        12px 12px 16px rgba(0, 0, 0, 0.1),
+        inset 2px 2px 4px rgba(255, 255, 255, 0.5),
+        inset -2px -2px 4px rgba(0, 0, 0, 0.1);
+      border-radius: 4px;
+      background: #f8f9fa;
+      padding: 8px;
+    }
+
+    /* 悬浮动画边框 */
+    .img-border-hover {
+      border: 2px solid transparent;
+      border-radius: 16px;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .img-border-hover:hover {
+      border-color: #7c3aed;
+      box-shadow: 0 10px 20px -5px rgba(124, 58, 237, 0.3);
+      transform: translateY(-4px);
+    }
+
+    /* 复古相框效果 */
+    .vintage-frame {
+      padding: 12px;
+      background: #f4e9d8;
+      border: 8px double #8b4513;
+      box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+      position: relative;
+    }
+
+    .vintage-frame::after {
+      content: '';
+      position: absolute;
+      top: 5px;
+      left: 5px;
+      right: 5px;
+      bottom: 5px;
+      border: 1px solid rgba(139, 69, 19, 0.3);
+    }
+  </style>
+</head>
+
+<body>
+  <div style="display: flex;flex-direction: row;">
+    <div style="flex: 1; ">
+      <input id="wss_location" value="192.168.10.21:8080" placeholder="请输入ws地址" />
+      <button onclick="connect()">连接服务器</button>
+      <button onclick="sendMessage()">执行代码</button>
+      <div><textarea style="width: 88%;" id="code" rows="5"></textarea></div>
+      <div id="status">状态: 未连接</div>
+      <div id="messages"></div>
+    </div>
+    <div style="flex: 4; ">
+      <div>屏幕🖥</div>
+      <img alt="加载失败" id="img" class="img-border-1" />
+    </div>
+  </div>
+
+  <script>
+
+    const ipPortRegex =
+      /^((?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(?::(?:[0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$/;
+
+
+    let web_img_ws;
+    // 连接 WebSocket 服务器
+    function connect() {
+      let wss_location = document.querySelector("#wss_location").value;
+      if (!ipPortRegex.test(wss_location)) {
+        alert("ws地址错误");
+        return
+      }
+
+      web_img_ws = newSocket(wss_location, "web_img", (event) => showImg(event.data));
+    }
+
+    function newSocket(wss_location, clientId, onMessage) {
+      let ws = new WebSocket(`ws://${wss_location}/ws?device=` + JSON.stringify({
+        clientId: clientId
+      })); // 替换为你的服务端地址
+
+      // 监听连接打开
+      ws.onopen = () => {
+        updateStatus(clientId + ':已连接');
+        logMessage(clientId + ':成功连接到服务器');
+      };
+
+      // 接收文本消息
+      ws.onmessage = (event) => {
+        onMessage(event)
+      };
+
+      // 错误处理
+      ws.onerror = (error) => {
+        updateStatus(clientId + ':连接错误');
+        console.error(clientId + ':WebSocket 错误:', error);
+      };
+
+      // 监听连接关闭
+      ws.onclose = () => {
+        updateStatus(clientId + ':已断开');
+        logMessage(clientId + ':连接已关闭');
+      };
+      return ws;
+    }
+
+    // 发送文本消息
+    function sendMessage() {
+
+      if (web_img_ws && web_img_ws.readyState === WebSocket.OPEN) {
+        console.log('web_img_ws', { code: document.getElementById('code').value || "toast('hello!');" });
+
+        web_img_ws.send(JSON.stringify({ code: document.getElementById('code').value || "toast('hello!');" }))
+      }
+    }
+
+
+    // 更新状态显示
+    function updateStatus(text) {
+      document.getElementById('status').textContent = `状态: ${text}`;
+    }
+
+    // 记录消息到界面
+    function logMessage(msg) {
+      const div = document.createElement('div');
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      document.getElementById('messages').appendChild(div);
+    }
+
+
+    let _url;
+    function showImg(data) {
+      if (data instanceof Blob) {
+        if (_url) {
+          URL.revokeObjectURL(_url)
+        }
+        const url = URL.createObjectURL(data);
+        _url = url
+        img.src = url;
+        document.getElementById('img').setAttribute("src", url
+        )
+      }
+    }
+  </script>
+
+</html>

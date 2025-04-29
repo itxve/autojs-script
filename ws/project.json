@@ -1,0 +1,32 @@
+{
+    "assets": [],
+    "encryptLevel": 0,
+    "useFeatures": [],
+    "launchConfig": {
+        "displaySplash": true,
+        "hideLogs": true,
+        "splashText": "Powered by AutoJs6",
+        "stableMode": true
+    },
+    "main": "main.js",
+    "name": "ws",
+    "optimization": {
+        "removeOpenCv": false,
+        "unusedResources": false
+    },
+    "packageName": "org.autojs.autojs6.ws",
+    "scripts": {},
+    "versionCode": 1,
+    "versionName": "1.0.0",
+    "ignore": [
+        "/serve/",
+        "/package-lock.json",
+        "/package.json",
+        "/.internal/",
+        "/build/",
+        "/node_modules/",
+        "/out/",
+        "/declarations/",
+        "/autojs6-dts/"
+    ]
+}

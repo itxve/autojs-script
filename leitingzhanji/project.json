@@ -3,6 +3,7 @@
     "main": "main.js",
     "ignore": [
         "build",
+        "node_modules",
         "res",
         "startWith函数实现"
     ],

@@ -4,7 +4,7 @@
   "description": "`好友竞赛->选择战友出击->出击->(检测是否死亡并结束)->[宝箱领取?]->继续出击 需要自己找截图的坐标 ！！！需要注意的点 【全屏】和【悬浮窗】的截图是不一样的`",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
   },
   "keywords": [],
   "author": "",

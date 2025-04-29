@@ -134,6 +134,7 @@ var window = floaty.window(
   </frame>
 );
 
+
 let resize = () => {
   window.setAdjustEnabled(true);
   setTimeout(() => {
@@ -418,6 +419,7 @@ window.start.on("click", () => {
         300000, //半小时
         4000
       );
+      wait;
       consoleText(prestr + "setp.4 [已死亡]");
       sleep(1000);
       consoleText(prestr + "setp.5 [宝箱领取]");
@@ -445,6 +447,7 @@ window.start.on("click", () => {
   });
 });
 
+cX;
 function checkAccessibility() {
   if (!auto.service) {
     toast("请先开启无障碍服务");
@@ -459,6 +462,29 @@ function exitScript() {
   setTimeout(() => {
     runtime.exit();
   }, 800);
+}
+
+function confirm_exit() {
+  // 主线线程
+  events.observeKey();
+  // 连续按两下减音量键退出
+  let timeout = 2000;
+  let lastPressTime = 0;
+  //监听音量上键按下
+  events.onKeyDown("volume_down", function (_event) {
+    const now = Date.now();
+    if (now - lastPressTime < timeout) {
+      // 3 秒内第二次按下
+      threads.shutDownAll();
+      engines.stopAll();
+      setTimeout(() => {
+        runtime.exit();
+      }, 800);
+    } else {
+      toast("再按一次退出脚本");
+      lastPressTime = now;
+    }
+  });
 }
 
 function start() {
